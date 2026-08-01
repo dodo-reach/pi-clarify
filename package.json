@@ -22,9 +22,15 @@
     "@earendil-works/pi-tui": "*"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-ai": { "optional": true },
-    "@earendil-works/pi-coding-agent": { "optional": true },
-    "@earendil-works/pi-tui": { "optional": true }
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
   },
   "pi": {
     "extensions": [
@@ -38,5 +44,9 @@
   "bugs": {
     "url": "https://github.com/dodo-reach/pi-clarify/issues"
   },
-  "homepage": "https://github.com/dodo-reach/pi-clarify#readme"
+  "homepage": "https://github.com/dodo-reach/pi-clarify#readme",
+  "author": "dodo-reach",
+  "publishConfig": {
+    "access": "public"
+  }
 }

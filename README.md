@@ -8,6 +8,9 @@ Use it when you know what you want, but not the exact term or structure.
 ## Install
 
 ```sh
+# recommended
+pi install npm:pi-clarify
+
 # from git
 pi install git:github.com/dodo-reach/pi-clarify
 
@@ -15,7 +18,7 @@ pi install git:github.com/dodo-reach/pi-clarify
 pi install /path/to/pi-clarify
 
 # try once without installing
-pi -e git:github.com/dodo-reach/pi-clarify
+pi -e npm:pi-clarify
 ```
 
 Then restart Pi or run `/reload`.
