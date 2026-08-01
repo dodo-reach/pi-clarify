@@ -21,9 +21,6 @@ pi -e git:github.com/dodo-reach/pi-clarify
 
 After install, restart Pi or run `/reload`.
 
-> npm publish is optional. When published, install with:
-> `pi install npm:pi-clarify`
-
 ## Usage
 
 ```text
