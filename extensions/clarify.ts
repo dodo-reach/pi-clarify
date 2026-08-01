@@ -11,7 +11,7 @@
  *
  * Config (optional):
  *   <agent-dir>/clarify.json
- *   { "provider": "openai", "model": "gpt-5.4-mini" }
+ *   { "provider": "<provider>", "model": "<model-id>" }
  *
  * When no config is set, the current session model is used.
  */
@@ -25,9 +25,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-
-// Whole-token marker so words like "pre-clarify" are ignored.
-const CLARIFY_MARKER_RE = /(?:^|\s)-clarify(?=\s|$|[.,;:!?…])/gi;
+import { hasClarifyMarker, stripClarifyMarker } from "../src/marker.ts";
 
 const USAGE =
 	"Usage: /clarify <idea> | /clarify | /clarify model [provider model|reset] | add -clarify anywhere in the message";
@@ -69,20 +67,6 @@ type ClarifyUi = {
 };
 
 type RewriteModel = NonNullable<ReturnType<ExtensionContext["modelRegistry"]["find"]>>;
-
-function hasClarifyMarker(text: string): boolean {
-	const trimmed = text.trim();
-	if (trimmed === "-clarify") return true;
-	CLARIFY_MARKER_RE.lastIndex = 0;
-	return CLARIFY_MARKER_RE.test(text);
-}
-
-function stripClarifyMarker(text: string): string {
-	return text
-		.replace(CLARIFY_MARKER_RE, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
 
 function configPath(): string {
 	return path.join(getAgentDir(), "clarify.json");

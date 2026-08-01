@@ -1,9 +1,10 @@
 {
   "name": "pi-clarify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Rewrite rough, plain-language prompts into precise technical prompts before you send them to the Pi coding agent.",
   "license": "MIT",
   "type": "module",
+  "author": "dodo-reach",
   "keywords": [
     "pi-package",
     "pi-extension",
@@ -11,11 +12,19 @@
     "prompting",
     "terminology"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "extensions/**/*.ts",
+    "src/**/*.ts",
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
@@ -45,7 +54,6 @@
     "url": "https://github.com/dodo-reach/pi-clarify/issues"
   },
   "homepage": "https://github.com/dodo-reach/pi-clarify#readme",
-  "author": "dodo-reach",
   "publishConfig": {
     "access": "public"
   }

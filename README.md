@@ -8,20 +8,21 @@ Use it when you know what you want, but not the exact term or structure.
 ## Install
 
 ```sh
-# recommended
-pi install npm:pi-clarify
-
-# from git
 pi install git:github.com/dodo-reach/pi-clarify
-
-# from a local checkout
-pi install /path/to/pi-clarify
-
-# try once without installing
-pi -e npm:pi-clarify
 ```
 
-Then restart Pi or run `/reload`.
+Also valid:
+
+```sh
+pi install https://github.com/dodo-reach/pi-clarify
+pi install /path/to/pi-clarify
+pi -e git:github.com/dodo-reach/pi-clarify
+```
+
+After install, restart Pi or run `/reload`.
+
+> npm publish is optional. When published, install with:
+> `pi install npm:pi-clarify`
 
 ## Usage
 
@@ -32,56 +33,65 @@ make the cards not jump -clarify  # marker anywhere in the message
 -clarify wait until typing stops before search
 ```
 
-The rewrite is put back in the editor. The coding agent does **not** start until
-you send the rewritten prompt.
+The rewrite is written back through Pi's editor API (`setEditorText`).
+The coding agent does **not** start until you send the rewritten prompt.
 
 ### Model selection
 
 By default, clarify uses the **current session model**.
 
-Pin a cheaper or different model:
+Pin a different model from your Pi registry:
 
 ```text
-/clarify model                         # show effective model
-/clarify model openai gpt-5.4-mini     # pin a model from your registry
-/clarify model reset                   # back to the session model
+/clarify model                      # show effective model
+/clarify model <provider> <model>   # pin a model
+/clarify model reset                # back to the session model
 ```
 
-Pinned model config is stored in:
+Pinned model config is stored under the active agent directory:
 
 ```text
-~/.pi/agent/clarify.json
+<agent-dir>/clarify.json
 ```
+
+Example:
 
 ```json
 {
-  "provider": "openai",
-  "model": "gpt-5.4-mini"
+  "provider": "your-provider",
+  "model": "your-model-id"
 }
 ```
 
+For the default Pi agent dir this is usually `~/.pi/agent/clarify.json`.
 The model must already exist in Pi's model registry, with auth configured.
 
-## What it does
+## Behavior
 
 - Registers `/clarify`
 - Intercepts the `-clarify` marker anywhere in a normal message
-- Calls one model turn to compress long descriptions into standard terms
-- Writes the result through `setEditorText`
+- Runs one model turn to compress long descriptions into standard terms
+- Preserves concrete details: names, paths, numbers, error text, acceptance criteria
+- Keeps the user's language
 - Does not invent scope, stack choices, or extra requirements
+- Returns ready-to-send prompt text only (no quotes, no preamble)
 
 ## Package layout
 
 ```text
 pi-clarify/
-├── package.json          # pi package manifest
+├── package.json
 ├── extensions/
-│   └── clarify.ts        # extension entry
+│   └── clarify.ts      # Pi extension entry
+├── src/
+│   └── marker.ts       # pure marker helpers
+├── test/
+│   └── marker.test.mjs
 ├── README.md
 └── LICENSE
 ```
 
-This package declares:
+Manifest:
 
 ```json
 {
@@ -94,10 +104,17 @@ This package declares:
 
 See the [Pi packages docs](https://pi.dev/docs/latest/packages).
 
+## Development
+
+```sh
+npm test
+npm run pack:check
+```
+
 ## Requirements
 
 - Pi coding agent with extension support
-- A configured model and API key for the rewrite call
+- A configured session model, or a pinned model + API key
 
 ## License
 
