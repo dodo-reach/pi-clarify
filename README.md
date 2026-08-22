@@ -113,6 +113,7 @@ npm run pack:check
 
 - Pi coding agent with extension support
 - A configured session model, or a pinned model + API key
+- pi >= 0.84.0 for models from custom-API extension providers (e.g. bridge extensions); older versions work with builtin-API models only
 
 ## License
 
