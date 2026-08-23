@@ -16,7 +16,7 @@
  * When no config is set, the current session model is used.
  */
 
-import { complete, type UserMessage } from "@earendil-works/pi-ai/compat";
+import { complete, type Context, type UserMessage } from "@earendil-works/pi-ai/compat";
 import {
 	getAgentDir,
 	BorderedLoader,
@@ -132,26 +132,22 @@ function describeModel(ctx: ClarifyUi): string {
 	return "none";
 }
 
-async function callModel(
-	text: string,
+// The compat surface dispatches builtin APIs only. modelRegistry.complete goes
+// through ModelRuntime (pi >= 0.84.0) and reaches custom-API extension providers.
+async function completeViaCompat(
 	model: RewriteModel,
+	context: Context,
 	ctx: ClarifyUi,
 	signal?: AbortSignal,
-): Promise<string | null> {
+) {
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 	if (!auth.ok || !auth.apiKey) {
 		throw new Error(auth.ok ? `No API key for ${model.provider}` : auth.error);
 	}
 
-	const userMessage: UserMessage = {
-		role: "user",
-		content: [{ type: "text", text }],
-		timestamp: Date.now(),
-	};
-
-	const response = await complete(
+	return complete(
 		model,
-		{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+		context,
 		{
 			apiKey: auth.apiKey,
 			headers: auth.headers,
@@ -160,6 +156,25 @@ async function callModel(
 			cacheRetention: "none",
 		},
 	);
+}
+
+async function callModel(
+	text: string,
+	model: RewriteModel,
+	ctx: ClarifyUi,
+	signal?: AbortSignal,
+): Promise<string | null> {
+	const userMessage: UserMessage = {
+		role: "user",
+		content: [{ type: "text", text }],
+		timestamp: Date.now(),
+	};
+	const context = { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] };
+
+	const response =
+		typeof ctx.modelRegistry.complete === "function"
+			? await ctx.modelRegistry.complete(model, context, { signal, cacheRetention: "none" })
+			: await completeViaCompat(model, context, ctx, signal);
 
 	if (response.stopReason === "aborted") {
 		return null;
