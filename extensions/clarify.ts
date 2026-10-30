@@ -24,6 +24,7 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { hasClarifyMarker, stripClarifyMarker } from "../src/marker.ts";
 
@@ -132,6 +133,11 @@ function describeModel(ctx: ClarifyUi): string {
 	return "none";
 }
 
+// opencode-go requires an x-opencode-session routing header on every request;
+// pi injects it for agent-loop requests, but clarify calls complete() directly,
+// so pass our own stable session id (any UUID is accepted for routing).
+const OPENCODE_SESSION_ID = `clarify-${randomUUID()}`;
+
 async function callModel(
 	text: string,
 	model: RewriteModel,
@@ -149,30 +155,59 @@ async function callModel(
 		timestamp: Date.now(),
 	};
 
-	const response = await complete(
-		model,
-		{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-		{
-			apiKey: auth.apiKey,
-			headers: auth.headers,
-			env: auth.env,
-			signal,
-			cacheRetention: "none",
-		},
-	);
+	// One retry: transient empty responses (endpoint hiccup, interrupted stream)
+	// otherwise surface a precise diagnosis instead of a generic error.
+	let response: Awaited<ReturnType<typeof complete>> | undefined;
+	let rewritten = "";
 
-	if (response.stopReason === "aborted") {
-		return null;
+	for (let attempt = 0; attempt < 2 && !rewritten; attempt++) {
+		response = await complete(
+			model,
+			{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+			{
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+				env: auth.env,
+				signal,
+				cacheRetention: "none",
+				sessionId: OPENCODE_SESSION_ID,
+			},
+		);
+
+		if (response.stopReason === "aborted") {
+			return null;
+		}
+
+		rewritten = response.content
+			.filter((c): c is { type: "text"; text: string } => c.type === "text")
+			.map((c) => c.text)
+			.join("\n")
+			.trim();
+
+		const stop = response.stopReason;
+		if (!rewritten) {
+			// "length" means the model ran out of tokens (thinking models can burn
+			// the whole budget reasoning) and "error" means the request failed —
+			// retrying helps neither, fail fast with the real cause.
+			if (stop === "length") {
+				throw new Error(
+					`Clarify: rewrite hit the token limit before producing text (${model.provider}/${model.id}). Try a non-thinking model: /clarify model <provider> <model>.`,
+				);
+			}
+			if (stop === "error") {
+				throw new Error(
+					`Clarify: rewrite request failed: ${response.errorMessage ?? "unknown error"}`,
+				);
+			}
+			if (attempt === 0) continue; // could be transient (e.g. "stop" with empty content)
+		}
 	}
 
-	const rewritten = response.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n")
-		.trim();
-
 	if (!rewritten) {
-		throw new Error("Clarify returned empty text");
+		const reasoningOnly = (response?.content ?? []).some((c) => c.type === "thinking");
+		throw new Error(
+			`Clarify: model returned no text (stopReason: ${response?.stopReason}, model: ${model.provider}/${model.id}${reasoningOnly ? ", reasoning-only response" : ""}). Try pinning a non-thinking rewrite model: /clarify model <provider> <model>.`,
+		);
 	}
 
 	return rewritten;
