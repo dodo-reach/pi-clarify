@@ -16,7 +16,7 @@
  * When no config is set, the current session model is used.
  */
 
-import { complete, type UserMessage } from "@earendil-works/pi-ai/compat";
+import { clampThinkingLevel, type UserMessage } from "@earendil-works/pi-ai/compat";
 import {
 	getAgentDir,
 	BorderedLoader,
@@ -62,6 +62,7 @@ type ClarifyUi = {
 	hasUI: boolean;
 	mode: string;
 	model: ExtensionContext["model"];
+	thinkingLevel: ExtensionContext["thinkingLevel"];
 	modelRegistry: ExtensionContext["modelRegistry"];
 	ui: ExtensionContext["ui"];
 };
@@ -138,31 +139,32 @@ async function callModel(
 	ctx: ClarifyUi,
 	signal?: AbortSignal,
 ): Promise<string | null> {
-	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-	if (!auth.ok || !auth.apiKey) {
-		throw new Error(auth.ok ? `No API key for ${model.provider}` : auth.error);
-	}
-
 	const userMessage: UserMessage = {
 		role: "user",
 		content: [{ type: "text", text }],
 		timestamp: Date.now(),
 	};
 
-	const response = await complete(
-		model,
-		{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-		{
-			apiKey: auth.apiKey,
-			headers: auth.headers,
-			env: auth.env,
-			signal,
-			cacheRetention: "none",
-		},
-	);
+	// streamSimple resolves auth itself. reasoning must be a level the model supports:
+	// pi-ai 1.5+ defaults to "off", which e.g. mistral-large-4 rejects with a 400.
+	const response = await ctx.modelRegistry
+		.streamSimple(
+			model,
+			{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+			{
+				reasoning: clampThinkingLevel(model, ctx.thinkingLevel ?? "high"),
+				signal,
+				cacheRetention: "none",
+			},
+		)
+		.result();
 
+	if (response instanceof Error) throw response;
 	if (response.stopReason === "aborted") {
 		return null;
+	}
+	if (response.stopReason === "error") {
+		throw new Error(response.errorMessage ?? "Clarify request failed");
 	}
 
 	const rewritten = response.content
@@ -294,6 +296,7 @@ export default function (pi: ExtensionAPI) {
 				hasUI: ctx.hasUI,
 				mode: ctx.mode,
 				model: ctx.model,
+				thinkingLevel: ctx.thinkingLevel,
 				modelRegistry: ctx.modelRegistry,
 				ui: ctx.ui,
 			};
@@ -339,6 +342,7 @@ export default function (pi: ExtensionAPI) {
 			hasUI: ctx.hasUI,
 			mode: ctx.mode,
 			model: ctx.model,
+			thinkingLevel: ctx.thinkingLevel,
 			modelRegistry: ctx.modelRegistry,
 			ui: ctx.ui,
 		};
